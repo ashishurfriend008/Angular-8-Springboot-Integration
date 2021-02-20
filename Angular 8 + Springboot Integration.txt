@@ -1,0 +1,1148 @@
+Spring Boot + Angular 8 CRUD 
+----------------------------
+>> In controller class, RegistrationServiceApplication.java class is created
+
+@SpringBootApplication
+@RestController
+@CrossOrigin(origins = "*")
+public class RegistrationServiceApplication {
+
+    @Autowired
+    private UserRepository repository;
+
+    @PostMapping("/register")
+    public String register(@RequestBody User user) {
+        repository.save(user);
+        return "Hi " + user.getName() + " your Registration process successfully completed";
+    }
+    
+    @GetMapping("/getAllUsers")
+    public List<User> findAllUsers() {
+        return repository.findAll();
+    }
+
+    @GetMapping("/findUser/{email}")
+    public List<User> findUser(@PathVariable String email) {
+        return repository.findByEmail(email);
+    }
+
+    @DeleteMapping("/cancel/{id}")
+    public List<User> cancelRegistration(@PathVariable int id) {
+        repository.deleteById(id);
+        return repository.findAll();
+    }
+
+    public static void main(String[] args) {
+        SpringApplication.run(RegistrationServiceApplication.class, args);
+    }
+
+}
+
+>> Go to POSTMAN, configure the request body, select raw and type as JSON(application/json)
+{
+"name":"Michale",
+"email":"dey444@gmail.com",
+"experience":10,
+"domain":"full-stack"
+}
+
+http://localhost:9090/register (POST)  - send the url to post the data 
+
+http://localhost:9090/getAllUsers (GET) - it will verify the number of records present in database
+
+http://localhost:9090/cancel/63 (DELETE) - there is no record []
+
+>> Create a angular project - Go to CMD and go to a location where Angular project folder is created. Give the command ng new user-registration-client (it will generate angular project). Add the project in visual studio code IDE.
+
+>> Generate component - ng g c registration which will create registration component. In registration component where you want to create a form where we add the data and it will persist in database.Moreover, in seccond component we just want to perform search and delete operations. Excute ng g c search-delete.We create two components by executing each in IDE terminal.
+
+>> Generate service - Execute ng g s user-registration to create user-registration service where we write our REST consume logic.Things are updated in app.module.tx
+
+>> service name i.e.user-registration.service should be registered in app-module.tx.
+As we are going to use http client module here to consume the REST API that also we need to add in app-module.tx.Also, add the form modules as we are going to the form operation i.e. ng-module operations. 
+
+import { BrowserModule } from '@angular/platform-browser';
+import { NgModule } from '@angular/core';
+
+import { AppRoutingModule } from './app-routing.module';
+import { AppComponent } from './app.component';
+import { RegistrationComponent } from './registration/registration.component';
+import { SerachDeleteComponent } from './serach-delete/serach-delete.component';
+import { UserRegistationService } from './user-registation.service';
+import { HttpClientModule } from '@angular/common/http';
+import { FormsModule } from '@angular/forms';
+
+@NgModule({
+  declarations: [
+    AppComponent,
+    RegistrationComponent,
+    SerachDeleteComponent
+  ],
+  imports: [
+    BrowserModule,
+    AppRoutingModule,
+    FormsModule,
+    HttpClientModule
+  ],
+  providers: [UserRegistationService],
+  bootstrap: [AppComponent]
+})
+export class AppModule { }
+
+>> Go to registration component, we need to create the form page, so that we can get all the input and we can pass it in our REST call to persist in our backend call.
+registration.component.ts
+-------------------------
+import { Component, OnInit } from '@angular/core';
+import { User } from '../user';
+import { UserRegistationService } from '../user-registation.service';
+
+@Component({
+  selector: 'app-registration',
+  templateUrl: './registration.component.html',
+  styleUrls: ['./registration.component.css']
+})
+export class RegistrationComponent implements OnInit {
+
+
+  user: User=new User("","",0,"");
+  message:any;
+
+  constructor(private service:UserRegistationService) { }
+
+  ngOnInit() {
+  }
+  
+
+  public registerNow(){
+let resp=this.service.doRegistration(this.user);
+resp.subscribe((data)=>this.message=data);
+  }
+
+}
+
+registration.component.css
+--------------------------
+
+body {
+    padding-top:50px;
+}
+fieldset {
+    border: thin solid #ccc; 
+    border-radius: 4px;
+    padding: 20px;
+    padding-left: 40px;
+    background: #fbfbfb;
+}
+legend {
+   color: #678;
+}
+.form-control {
+    width: 95%;
+}
+label small {
+    color: #678 !important;
+}
+span.req {
+    color:maroon;
+    font-size: 112%;
+}
+
+registration.component.html
+---------------------------
+<link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+<script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.0/js/bootstrap.min.js"></script>
+<script src="//code.jquery.com/jquery-1.11.1.min.js"></script>
+<!------ Include the above in your HEAD tag ---------->
+<div style="text-align: center">
+    <h1>{{message}}</h1>
+</div>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-6">
+            <form>
+                <fieldset>
+                    <legend class="text-center">Valid information is required to register. <span class="req"><small>
+                                required *</small></span></legend>
+
+                    <div class="form-group">
+                        <label for="Name"><span class="req">* </span> Name: <small>This will be your login user
+                                name</small> </label>
+                        <input required type="text" [(ngModel)]="user.name" name="name" id="name"
+                            class="form-control phone" maxlength="28" placeholder="Enter your fullname..." />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="firstname"><span class="req">* </span> Email: </label>
+                        <input class="form-control" type="text" [(ngModel)]="user.email" name="email" id="txt" required
+                            placeholder="Enter valid email address" />
+                        <div id="errFirst"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="lastname"><span class="req">* </span> Experience : </label>
+                        <input class="form-control" type="text" [(ngModel)]="user.experience" name="experience" id="txt"
+                            placeholder="Total year of experience" required />
+                        <div id="errLast"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email"><span class="req">* </span> Developer: </label>
+                        <input class="form-control" required type="text" [(ngModel)]="user.domain" name="domain"
+                            id="email" placeholder="fullstack/backend/developer" />
+                        <div class="status" id="status"></div>
+                    </div>
+                    <div class="form-group">
+                        <input class="btn btn-success" type="submit" name="submit_reg" value="Register" (click)="registerNow()">
+                    </div>
+                </fieldset>
+            </form><!-- ends register form -->
+            <!-- second for to fiter user-->
+        </div><!-- ends col-6 -->
+
+    </div>
+</div>
+
+user.ts
+-------
+export class User{
+    constructor(
+        name:string,
+        email:string,
+        experience:number,
+        domain:string
+    ){}
+}
+Here, all fields we are getting from the html form, so that we can build a User object and we can pass it to the POST request.
+We have created a User object in registration.component.ts. Whatver the value we get from the form that we want to populate in this User object.Same User object we want to pass it to my REST API call.
+
+>> Go to user-registration.service.ts where we can do a REST call.In service just inject HTTPClient and do registration which accepts the user object.
+
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class UserRegistationService {
+
+  constructor(private http:HttpClient) { }
+
+
+  public doRegistration(user){
+    return this.http.post("http://localhost:9090/register",user,{responseType:'text' as 'json'});
+  }
+
+  public getUsers(){
+    return this.http.get("http://localhost:9090/getAllUsers");
+  }
+
+  public getUserByEmail(email){
+    return this.http.get("http://localhost:9090//findUser/"+email);
+  }
+
+  public deleteUser(id){
+    return this.http.delete("http://localhost:9090/cancel/"+id);
+  }
+}
+
+Once we click the form submit button, the request will go to registerNow() method in registration.component.ts. From that method, it will go to doRegistration(user) method in user-registration.service.ts. And from doRegistration() method it will call the REST endpoint.
+
+Now, we need to register our service i.e. user-registration.service.ts in registration.component.ts to call doRegistration(user) method. Whatever response will it return we just need to capture it our html.
+
+>> We need to configure angular routing - Go to app-routing.module.ts and in the Routes section we need to configure the URL and corresponding component.
+
+app-routing.module.ts
+---------------------
+import { NgModule } from '@angular/core';
+import { Routes, RouterModule } from '@angular/router';
+import { RegistrationComponent } from './registration/registration.component';
+import { SerachDeleteComponent } from './serach-delete/serach-delete.component';
+
+const routes: Routes = [
+  {path:"",redirectTo:"register",pathMatch:"full"},
+   {path:"register",component:RegistrationComponent},
+   {path:"search",component:SerachDeleteComponent}
+];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule]
+})
+export class AppRoutingModule { }
+
+>> Go to the Visual code IDE terminal, execute ng server --open
+
+>> Open, http://localhost:4200/register in browser, fill up the form and submit Register then we will get response as "Hi Piter your Registration process successfully completed".
+
+>> Now, if we will go to beckend and execute query Select * from javatechie.user_reg_tbl of user_reg_tbl table then we will get object. That means, POST API is working as expected.
+
+>> If we will open http://localhost:4200/search here then it will give message "search-delete works!" because we don't wrote logic for search and delete operations.
+
+>> Now, go to user-registration.service.ts
+
+public getUsers(){
+    return this.http.get("http://localhost:9090/getAllUsers");
+  }
+
+  public getUserByEmail(email){
+    return this.http.get("http://localhost:9090//findUser/"+email);
+  }
+ 
+  public deleteUser(id){
+    return this.http.delete("http://localhost:9090/cancel/"+id);
+  }
+
+Now, we will write all the methods above three in component.
+
+>> Go to, search-delete.component.ts. Here, we want to display the list of users which we get from DB on application load time.So, once the application is load we want to display those data. First of all, we inject the service here.
+
+import { Component, OnInit } from '@angular/core';
+import { UserRegistationService } from '../user-registation.service';
+
+@Component({
+  selector: 'app-serach-delete',
+  templateUrl: './serach-delete.component.html',
+  styleUrls: ['./serach-delete.component.css']
+})
+export class SerachDeleteComponent implements OnInit {
+
+  users:any;
+  email:string;
+  
+  constructor(private service:UserRegistationService) { }
+
+
+public delteUser(id:number){
+ let resp= this.service.deleteUser(id);
+ resp.subscribe((data)=>this.users=data);
+}
+
+public findUserByEmailId(){
+  let resp= this.service.getUserByEmail(this.email);
+  resp.subscribe((data)=>this.users=data);
+ }
+
+  ngOnInit() {
+    let resp=this.service.getUsers();
+    resp.subscribe((data)=>this.users=data);
+  }
+
+}
+
+>> search-delete.component.css
+   ---------------------------
+
+
+.custab{
+    border: 1px solid #ccc;
+    padding: 5px;
+    margin: 10% 0;
+    box-shadow: 3px 3px 2px #ccc;
+    transition: 0.5s;
+    }
+.custab:hover{
+    box-shadow: 3px 3px 0px transparent;
+    transition: 0.5s;
+    }
+
+   
+
+#custom-search-input {
+  margin:0;
+  margin-top: 24px;
+  padding: 2px;
+}
+.col-md-12 {
+  width: 62%;
+}
+#custom-search-input .search-query {
+  padding-right: 3px;
+  padding-right: 4px \9;
+  padding-left: 3px;
+  padding-left: 4px \9;
+  /* IE7-8 doesn't have border-radius, so don't indent the padding */
+
+  margin-bottom: 0;
+  -webkit-border-radius: 3px;
+  -moz-border-radius: 3px;
+  border-radius: 43px;
+}
+
+#custom-search-input button {
+  border: 0;
+  background: none;
+  /** belows styles are working good */
+  padding: 2px 5px;
+  margin-top: 2px;
+  position: relative;
+  left: -28px;
+  /* IE7-8 doesn't have border-radius, so don't indent the padding */
+  margin-bottom: 0;
+  -webkit-border-radius: 3px;
+  -moz-border-radius: 3px;
+  border-radius: 3px;
+  color:green;
+}
+
+.search-query:focus + button {
+  z-index: 3;  
+}
+.input-group {
+  position: relative;
+  display: table;
+  border-collapse: separate;
+  padding-right: 0px;
+  padding-left: 183px;
+}
+
+>> search-delete.component.html
+   ----------------------------
+<link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+<script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+<script src="//code.jquery.com/jquery-1.11.1.min.js"></script>
+<!------ Include the above in your HEAD tag ---------->
+
+
+<div class="container">
+    <div class="row">
+               <div id="custom-search-input">
+                                <div class="input-group col-md-12" style="text-align: center">
+                                    <input type="text" class="search-query form-control" placeholder="Search With Email Address"  name="email" [(ngModel)]="email"/>
+                                    <span class="input-group-btn">
+                                        <button class="btn btn-danger" type="button" (click)="findUserByEmailId()">
+                                            <span class=" glyphicon glyphicon-search"></span>
+                                        </button>
+                                    </span>
+                                </div>
+                            </div>
+    </div>
+    </div>
+<div class="container">
+<div class="container">
+    <div class="row col-md-6 col-md-offset-2 custyle">
+    <table class="table table-striped custab">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Experience</th>
+            <th>Domain</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr *ngFor="let user of users">
+            <td>{{user.id}}</td>
+            <td>{{user.name}}</td>
+            <td>{{user.email}}</td>
+            <td>{{user.experience}}</td>
+            <td>{{user.domain}}</td>
+            <td class="text-center"><button class="btn btn-danger btn-xs" (click)="delteUser(user.id)"><span class="glyphicon glyphicon-remove"></span> Delete</button></td>
+          </tr>
+    </tbody>
+    </table>
+    </div>
+</div>
+
+>> Now, lets run code which will compilled successfully.
+
+>> Go to browser, http://localhost:4200/search where we will have only one record and we are able to display in our table.
+
+>> Again, fill the form and click Regiser which gives the response and we will find two records  available once we excuted query in the database. But the Delete operation won't work here because we didn't mapped the URL here.
+
+
+HttpClient - Consume RESTful API
+--------------------------------
+Client and server can communicate with each other using REST API call
+
+>> Generate the component - Execute in the visual code IDE terminal ng g c user which will create a user component. Inside user component, it will create user.component.css, user.component.html, user.component.spec.ts and user.component.ts.
+
+>> We will use here is HTTPClient. It is a module which we need to add in our application to do a http call. Copy the http module from https://angular.io/guide/http to add in our app.module.ts.We will add in app.module.ts because whatever component we have they can directly use this module.In the import section we need to add HttpClientModule in app.module.ts.
+
+imports { HttpClientModule } from '@angular/common/http';
+imports:[ HttpClientModule ]
+
+>> We can inject HttpClient in user.component.ts and do a REST call.
+
+@component({
+selector: 'app-user',
+templateUrl: './user.component.html',
+styleUrls: ['./user.component.css']
+})
+
+export class UserComponent implements OnInit{
+	
+     constructor(private http:HttpClient) {}
+
+     ngOnInit(){
+	let res = this.http.get("https://jsonplaceholder.typicode.com/users");
+	res.subscribe((data) => console.log(data));
+  }
+
+}
+
+Here, subscribe() method is a part of RxJx package which is used for asynchronous call.
+
+>> In order to show data which we will get from REST API call in app.component.html we will use selector.
+app.component.html
+------------------
+<div style="text-align:center">
+<h1>
+Welcome to {{ title }}
+</h1>
+</div>
+<app-user></app-user>
+
+>> Now,start server - Execute command ng server --open. So the server is UP on port 4200.
+
+http://localhost:4200/
+As we bind our REST response to the console, so to console in developer tool and see it is giving object array of 10 user object.
+
+HTTPClient-REST API call - Displaying data in HTML
+--------------------------------------------------
+>> Creating list of object of type any and the data which we are getting from the REST call will bind that to users.
+
+Will create list of users which we want to propagate to html page, so that we can render list of user and the data which we are getting from the REST call we are assigning it to the list of user.
+user.component.ts
+-----------------
+@component({
+selector: 'app-user',
+templateUrl: './user.component.html',
+styleUrls: ['./user.component.css']
+})
+
+export class UserComponent implements OnInit{
+	
+     users : any;
+	
+     constructor(private http:HttpClient) {}
+
+     ngOnInit(){
+	let res = this.http.get("https://jsonplaceholder.typicode.com/users");
+	res.subscribe((data) => this.users=data);
+  }
+
+}
+
+>> Iterate users in user.component.html - Go to user.component.html and add the table strcuture here as we are getting the list of user.
+user.component.html
+-------------------
+ 	<div class="container">
+                <h1>Bordered Table</h1>
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <thId</th>
+                            <th>Name</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let user of users"> // users is list and user is the object
+                            <th>{{ user.id }}</th>
+                            <td>{{ user.name }}</td>
+			    <td>{{ user.username }}</td>
+                            <td>{{ user.email }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+We use ngFor because it will return the list of user.
+
+>> Save all files, refresh the browser we will see the data.
+
+
+Integrate Springboot With Angular Application
+----------------------------------------------
+springboot is server side application and angular is client side application.
+
+>> Create a springboot project where we are creating a book service in which we have one REST endpoint. It returns  list of book object.
+@GetMapping("/findAllBooks")
+public List<Book> getBook(){
+	return Stream.of(new Book(101, "Java", 999),
+			 new Book(102, "Spring", 1199),new Book(103, "Hibernate", 445)
+			 new Book(104, "Angular", 888).collect(Collectors.toList());
+}
+
+>> Created DTO named Book having fields id, name, price.
+
+>> Run springboot application which is up on port 9090. Go to browser, http://localhost:9090/findAllBooks where we will find all four Book object.
+
+>> Same REST endpoint we are going to consume from our Angular client.
+
+
+>> Go to the folder workspace where you will create anugular project and open CMD. Execute command "ng new book-client". After a while, it will create a new angular project for us.
+
+>> Go Visual Studio Code IDE and import the new project i.e. book-client that we created.We have only app component related stuff.
+
+>> Create Book component - Execute command ng g c book. It create book component with files book.component.html, book.component.spec.ts, book.component.ts, book.component.css and app.module.ts.
+
+>> While we make REST API call from angular we need HttpClient. So, go to app.module.ts and inside the imports we need to add our HttpClientModule. 
+
+imports { HttpClientModule } from '@angular/common/http';
+imports:[ HttpClientModule ]
+
+>> Now, we need to inject this HttpClient in book.component.ts to consume the REST API.
+book.component.ts
+-----------------
+@component({
+selector: 'app-book',
+templateUrl: './book.component.html',
+styleUrls: ['./book.component.css']
+})
+
+export class BookComponent implements OnInit{
+	
+     users : any; //here, any is the type
+     
+     //Inject HttpClient	
+     constructor(private http:HttpClient) {}
+
+     ngOnInit(){
+	let resonse = this.http.get("https://localhost:9090/findAllBooks");
+	res.subscribe((data) => this.books=data);
+  }
+
+}
+From, ngOnInit() method we can invoke our REST call with the help of HttpClient.In subscribe() method get the data and print it in console. The data that we are getting from the REST call that is need to be assigned to our list of books object.
+
+
+>> Go to, book.component.html to render those list of book using ngFor
+
+book.component.html
+-------------------
+ 	<div class="container">
+                <h1>Bordered Table</h1>
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <thId</th>
+                            <th>Name</th>
+                            <th>Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let book of books"> // users is list and user is the object
+                            <th>{{ book.id }}</th>
+                            <td>{{ book.name }}</td>
+			    <td>{{ book.price }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+>> To display this book.component.html data in our app.component we just need to use the selector in book.component.ts.
+Go to, app.component.html and selector.
+
+app.component.html
+------------------
+<div style="text-align:center">
+<h1>
+Welcome to {{ title }} // title we will get from app.component.ts
+</h1>
+</div>
+<app-book></app-book>
+
+>> Run application to verify our angular client can able to consume REST application or not. So, execute command "ng server --open" which will compile the source code and after a while it compiled the application successfully and the application is UP on port 4200.
+
+http://localhost:4200/
+
+It will CROSS origin error.
+
+>> In CROSS origin error, go to our springboot application and specify @CrossOrigin i.e. who is going to access our application we are just giving permission to that.CrossOrigin is the default of browsers.Whenever we are going to do any Ajax or Angular call we will find this issue.We just need to give access to that application who's going to access our application.
+
+@CrossOrigin("http://localhost:4200")
+@GetMapping("/findAllBooks")
+public List<Book> getBook(){
+	return Stream.of(new Book(101, "Java", 999),
+			 new Book(102, "Spring", 1199),new Book(103, "Hibernate", 445)
+			 new Book(104, "Angular", 888).collect(Collectors.toList());
+}
+ 
+
+>> Restart the angular application, http://localhost:4200 and we will see the list of book object displaying in the table.
+
+>> For best practice, if there are number of components which would be using the same API then in this case create a service.
+
+>> Create a angular service - Execute "ng g s book" in terminal which it creates book.service.spec.ts and book.service.ts.
+
+>> Go to, book.service.ts and here we will do the REST call
+
+
+@Injectable({
+providedIn: 'root'
+})
+export class BookService{
+	
+     users : any; //here, any is the type
+     
+     //Inject HttpClient	
+     constructor(private http:HttpClient) {}
+
+     getBooks(){
+	return this.http.get("https://localhost:9090/findAllBooks");
+  }
+
+}
+
+>> Now, same response we will capture in our book.component.ts
+book.component.ts
+-----------------
+
+export class BookComponent implements OnInit{
+	
+     users : any; //here, any is the type
+
+     constructor(private service:BookService) { }
+     
+     ngOnInit(){
+	this.books = this.service.getBooks().subscribe(data=>this.books=data); // it will return list of books object
+  }
+
+}
+
+Here, we don't need to inject HttpClient in our component but need to inject service i.e.BookService
+
+>> Now, UP our server i.e. ng serve --open and our application is UP on port 4200.
+
+http://localhost:4200 - we can able to show the response i.e. list of books object in a table. 
+
+
+Create Service & Dependency Injection
+--------------------------------------
+Creating a service which is common to all components. In this case, we require dependency injection.
+
+>> Create a angular application which is having my-component, product component and user component.
+
+>> In product component, we have created list of product object which we hardcoded json product object here.
+
+product.component.ts
+--------------------
+export class ProductComponent implements OnInit{
+
+products : any
+
+constructor() {
+
+this.products=[
+{
+"id":4387,
+"name":"watch",
+"brand":"Timex",
+"price":7000
+},
+{
+"id":4387,
+"name":"watch",
+"brand":"Timex",
+"price":7000
+},
+{
+"id":4387,
+"name":"watch",
+"brand":"Timex",
+"price":7000
+},
+{
+"id":4387,
+"name":"watch",
+"brand":"Timex",
+"price":7000
+}
+]
+>> In product.component.html we just iterate them
+product.component.html
+----------------------
+ 	<div class="container">
+                <h1>Bordered Table</h1>
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <thId</th>
+                            <th>Name</th>
+                            <th>Brand</th>
+			    <th>Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let product of products"> // products is list and product is the object
+                            <th>{{ product.id }}</th>
+                            <td>{{ product.name }}</td>
+			    <td>{{ product.brand }}</td>
+			    <td>{{ product.price }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+
+>> Start the server i.e ng serve --open and http://localhost:4200 - it will show list of product object.
+
+>> Now, if any component need to access list of product object then it can't able to access it as the list of product only lies in specfic component.In this case, if we create a service and any component can inject this service and fetch the list of product object.
+
+>> Create service - Execute command ng r s Product. After a while, it will create product.service.spec.ts, product.service.ts.Service is similar to java class.Service is created to outside the component, so that it is visible to all the components.It contains the annotation i.e. @Injectable. This annotation indicates this is service.
+
+product.service.ts
+------------------
+@Injectable({
+providedIn: 'root'
+})
+
+export class ProductService{
+
+//create a method which returns list of product object
+getProducts(){
+
+return [
+{
+"id":4387,
+"name":"watch",
+"brand":"Timex",
+"price":7000
+},
+{
+"id":4387,
+"name":"watch",
+"brand":"Timex",
+"price":7000
+},
+{
+"id":4387,
+"name":"watch",
+"brand":"Timex",
+"price":7000
+},
+{
+"id":4387,
+"name":"watch",
+"brand":"Timex",
+"price":7000
+}
+];
+
+}
+
+}
+
+After this, remove the list of product object from component.Because we will fetch it from service.
+
+>> We will inject this service in our product component and we can use this method to get list of product object.
+
+>> How angular will know this is a service. In order to make it visible, register this service in angular app.module.ts
+
+>> Go to, app.module.ts, we can find a providers with empty array. Here, we can specify all the custom service.
+
+import { ProductService } from './product.service';
+providers :[ProductService]
+
+>> Now, product.component.ts want the list of product.In this case, we need to inject this service. This is a kind of dependency injection in angular.
+
+product.component.ts
+--------------------
+
+@component({
+selector: 'app-product',
+templateUrl: './product.component.html',
+styleUrls: ['./product.component.css']
+})
+
+export class ProductComponent implements OnInit{
+	
+     products : any; //here, any is the type
+     
+     //Inject HttpClient - It is fetching list of product from service	
+     constructor(service : ProductService) { //service is the variable name and ProductService is the service name
+	this.products = service.getProducts(); // return list of product object.
+     }
+
+     ngOnInit(){
+	
+  }
+
+}
+
+>> After that, run the application  i.e. ng serve --open. After a while, application is compilled successfully and application is UP o n port 4200. 
+
+http://localhost:4200 - it show the list of product object which will display in a table
+
+>> If we want to get the list of product at the initialzed time means in ngOnInit. We can specify the scope and whereever we want we can get it. So, modify product.component.ts as below
+ 
+product.component.ts
+--------------------
+
+@component({
+selector: 'app-product',
+templateUrl: './product.component.html',
+styleUrls: ['./product.component.css']
+})
+
+export class ProductComponent implements OnInit{
+	
+     products : any; //here, any is the type
+     
+     //Inject HttpClient - It is fetching list of product from service	
+     constructor(private service : ProductService) { //service is the variable name and ProductService is the service name
+	
+     }
+
+     ngOnInit(){
+	this.products = service.getProducts(); // return list of product object.
+  }
+
+}
+
+>> Refresh the browser, we can see the list of product object.
+
+>> In similar way, in my-component.component.ts inject the product service.
+
+my-component.component.ts
+-------------------------
+
+@component({
+selector: 'app-my-component',
+templateUrl: './my-component.component.html',
+styleUrls: ['./my-component.component.css']
+})
+
+export class MyComponentComponent implements OnInit{
+	     
+     //Inject HttpClient - It is fetching list of product from service	
+     constructor(private service : ProductService) { //service is the variable name and ProductService is the service name
+	
+     }
+
+     ngOnInit(){
+	this.products = service.getProducts(); // return list of product object.
+  }
+
+}
+
+ng-switch Directive
+-------------------
+This concept is alternate of multiple if else statements used. 
+
+>> Create a angular application and create a component i.e. activity component. 
+
+>> Go to, activity.component.ts, we will do one REST call using HttpClient.
+
+activity.component.ts
+---------------------
+@component({
+selector: 'app-book',
+templateUrl: './book.component.html',
+styleUrls: ['./book.component.css']
+})
+
+export class ActiviyComponent implements OnInit{
+	
+     activities : any; //here, any is the type
+     
+     //Inject HttpClient	
+     constructor(private http:HttpClient) {}
+
+     ngOnInit(){
+	let resonse = this.http.get("https://demo4690221.mockable.io/getActivities");
+	res.subscribe((data) => this.books=data);
+  }
+
+}
+
+>> Go to activity.component.html, display the table 
+
+activity.component.html
+-----------------------
+
+<div class="container">
+                <h1>Bordered Table</h1>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <thId</th>
+                            <th>Title</th>
+                            <th>DueDate</th>
+			    <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="table-secondary" *ngFor="let activity of activities"> //activities is list and activity is the object
+                            <th>{{ activity.id }}</th>
+                            <td>{{ activity.title }}</td>
+			    <td>{{ activity.dueDate }}</td>
+			    <td>{{ activity.Status }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+>> Start the server i.e. ng serve --open.So, application is UP on port 4200.
+
+http://localhost:4200 - it show 10 activity object.
+
+>> We want to put condition for particular column i.e. Status in activity.component.html
+
+activity.component.html
+-----------------------
+<td><div [ngSwitch]="activity.status">
+<span *ngSwitchCase="0">Not Completed</span>
+<span *ngSwitchCase="1">Completed</span>
+<span *ngSwitchDefault>NA</span>
+</div></td>
+
+>> Go to the browser and refresh the page and it will show Not Completed, Completed, NA in place of 0, 1 and -1.
+
+Angular Navigation
+------------------
+>> Generate "ng g c" home component. It created home component with files home.component.html, home.component.spec.ts, home.component.ts, home.component.css and update app.module.ts.
+
+>> In app-routing.module.ts, add the home component
+
+import { HomeComponent } from './home/home.component';
+
+const routes: Routes = [
+  {path:"",redirectTo:"home",pathMatch:"full"},
+  {path:"home",component:HomeComponent},
+  {path:"register",component:RegistrationComponent},
+  {path:"search",component:SerachDeleteComponent}
+];
+
+>> Run application, ng serve --open --> http://localhost:4200 - it will redirect to home component i.e. http://localhost:4200/home
+
+>> In home.component.html add the navigation bar. Taken navigation bar code of Bootstrap 4 from w3schools.com
+
+home.component.html
+-------------------
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Bootstrap Example</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</head>
+<body>
+
+<nav class="navbar bg-light">
+  <ul class="navbar-nav">
+    <li class="nav-item">
+      <a class="nav-link" href="/register">Register</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="/search">Search & Delete</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" href="#">Link 3</a>
+    </li>
+  </ul>
+</nav>
+<br>
+
+<div class="container-fluid">
+  <h3>Vertical Navbar Example</h3>
+  <p>A navigation bar is a navigation header that is placed at the top of the page.</p>
+</div>
+
+</body>
+</html>
+
+
+>> Refresh the page and see the navigation bar in the browser.If we click on Register then the page will redirect to register component and if we click on Search & Delete then the page will redirect to search component.
+
+>> As we are using href and while we click Register or Search & Delete link it will load all the files in the background which affects the performance.So, to avoid this, angular introduced routerLink which helps to redirect one html page to another html page.
+
+<li class="nav-item">
+      <a class="nav-link" routerLink="/register">Register</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" routerLink="/search">Search & Delete</a>
+    </li>
+
+After that, if we click Register link then it will load the css file no other file. We can verify this in the Network tab of developer tool.
+
+>> In registration.component.html and search-delete.component.html add the below code in the end.It will redirect to home component.
+
+<div>
+<a class="nav-link" routerLink="/home">Home</a>
+</div>
+
+Note - We have used free navigation template provided by bootstrap 4 from W3 schools.
+
+Docker & Angular - Dockerizing Angular Application
+--------------------------------------------------
+The process of creating docker image is similar for all the language.Docker file can vary based on the language which we need to do some modification on docker file.So, whenever we are dockerizing any application we need to write the docker file.
+
+>> Create a angular project by giving command ng -g new ng-docker-example. After a while, angular project created successfully.
+
+>> Run ng build --prod - all the compiled files generated in dist folder.if we go inside that folder we will find all the compiled files.
+
+>> Go to the root directory, create a Dockerfile where D should be capital always.Dockerfile will be global file in angular project.
+
+>> Dockerfile
+   ----------
+FROM nginx:1.17.1-alpine
+COPY /dist/ng-docker-example/usr/share/nginx/html
+
+In FROM we are telling to docker just download this nginx and 1.17.1-alpine version. After that, copy all compiled files from this dist folder and place it inside docker container.
+
+>> Create docker image - Execute a command "docker build -t ng-docker-example ." . But before you build docker image just make sure you UP your docker terminal.
+
+>> Go to docker terminal and type "docker images" then we will see ng-docker-example which is the docker image.
+
+>> Run docker image - Execute "docker run -p 80:80 ng-docker-example" .Here, port 80 in the left side is the docker container port and right side port we can specify any.
+
+>> Go to the browser and type, 192.168.99.100 and check the response.The application is executed over docker container. No need to run angular server.
+
+Angular Material Data Table
+---------------------------
+>> Basically, angular material is a UI component library and provide us some inbuild component to build an awesome UI in a quick time.
+
+>> Go to https://material.angular.io and go to Components section then we can view all the components given by angular material.There are Form Controls, Navigation, Layout, Buttons & Indicators, Popups & Modals, Data table components.
+
+>> Create anugular project - ng new javatechie-covid-19-tracker. After a while, our project created successfully.
+
+>> Go to angular material i.e. https://material.angular.io --> Guides --> Come down to see Install angular material and copy that instruction i.e.ng add @angular/material
+
+>> Run this "add @angular/material" which will add all the dependencies in project. While it install dependencies just select yes to browser animation for Angular Material.It will also ask to use the theme in that case we use custom and for set up HammerJS we select No. After a while, we observe that it updated app.module.ts and in package.json we can see it added dependency @angular/material : 8.2.3 version.Also, in app.module.ts it added BrowserAnimationModule.
+
+>> https://material.angular.io and go to Components section, click on Data table --> click on table. Go to TS, copy the interface and periodic element and add it in app.component.ts 
+
+>> Go to TS, come down we just need to add element data which is the hard code value to data source. copy that and add it in app.component.ts
+
+app.component.ts
+----------------
+
+@Component({
+selector: 'app-root',
+templateUrl: './app.component.html',
+styleUrls: './app.component.css'
+})
+
+export class AppComponent{
+title = 'javatechie-covid19-tracker';
+displayedColumns: string[] = ['position', 'name', 'weight', 'symbol'];
+dataSource = ELEMENT_DATA;
+
+Also, copy the html and paste it in the app.component.html. Moreover, 'position', 'name', 'weight' and 'symbol'  need to be specify in html file i.e.app.component.html.
+
+>> Open terminal, run application i.e. ng server --open
+
+>> Add, MatTableModule in app.module.ts in imports element and also add the import statement.
+ i.e. import {MatTableModule} from '@angular/material/table';
+
+>> Go to, app.component.css and specify the below code
+
+app.component.css
+-----------------
+table{
+  width : 100%;
+}
+
+>> Open http://localhost:4200 - it will show the data table.
+
+>> Advantage of using angular material - it is compatible with all the device which is a alternate to the bootstrap we can say. Moreover, based on mobile device height and width it is compatible with that particular device.
